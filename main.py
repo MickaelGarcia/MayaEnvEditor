@@ -20,108 +20,85 @@
 -------------------------------------------------------------------------------
 """
 
-import os
+import sys
 import re
-import ctypes.wintypes
 import variables
-
-CSIDL_PERSONAL= 5
-SHGFP_TYPE_CURRENT= 0
-SEPARATOR = ["="]
-UNDO_HISTORIC = []
-
-buf= ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-ctypes.windll.shell32.SHGetFolderPathW(0, CSIDL_PERSONAL, 0, SHGFP_TYPE_CURRENT, buf)
-MAYA_PATH = (os.path.join(buf.value, "maya"))
+import ME_core as Core
+from qtpy import QtWidgets, QtCore
 
 
-# Gell Document dir and mayas dirs to get all maya.env possibles, and return a dictonary for all maya version found in key, and all variables set as values
-def getMayaEnvs():
-    # Auto detect maya ducment path and, for all version, get maya.env file
-    dirInMayaPath = os.listdir(MAYA_PATH)
-    mayaEnvs =  []
-    fullMayDict = {}
-    for dir in dirInMayaPath:
-        if re.match("^\d*$", dir):
-            mayaEnvs.append(os.path.join(MAYA_PATH, dir, "Maya.env"))
-            for mayaEnv in mayaEnvs:
-                fullMayDict[dir] = getEnvVar(mayaEnv)
+class mayaEditorUI(QtWidgets.QMainWindow):
+    def __init__(self, *args, **kwargs):
+        super(mayaEditorUI, self).__init__(*args, **kwargs)
+        self.setStyleSheet("""QSplitter::handle:horizontal {
+                           background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                               stop:0 #eee, stop:1 #ccc);
+                           width: 4px;
+                           border-radius: 4px;
+                           }""")
+        self.mayaEnvs = None
 
-    return fullMayDict
+        self.setWindowTitle("Maya Environement Editor")
+        centralWidget = QtWidgets.QWidget()
+        centralLayout = QtWidgets.QHBoxLayout()
+        self.setCentralWidget(centralWidget)
+        centralWidget.setLayout(centralLayout)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        centralLayout.addWidget(splitter)
 
-# With maya.env path, return a dict of all variables except for commented lignes
-def getEnvVar(mayaEnvPath):
-    # mayaEnvPath (str): path of maya.env file.
-    with open (mayaEnvPath, "r") as f:
-        mayaVar = f.readlines()
+        mayaVersionsWidgets = QtWidgets.QWidget()
+        mayaVersionsLayout = QtWidgets.QHBoxLayout()
+        self.mayaVersions = QtWidgets.QTreeWidget()
+        self.mayaVersions.setHeaderLabel("Maya Versions")
+        self.mayaVersions.header().setDefaultAlignment(QtCore.Qt.AlignCenter)
+        mayaVersionsWidgets.setLayout(mayaVersionsLayout)
+        mayaVersionsLayout.addWidget(self.mayaVersions)
+
+        workspaceWidget = QtWidgets.QWidget()
+        workspaceLayout = QtWidgets.QVBoxLayout()
+        workspaceWidget.setLayout(workspaceLayout)
+
+        self.variablesView = QtWidgets.QTreeWidget()
+        self.variablesView.setHeaderLabels(["Name", "Values", "Type"])
+        workspaceLayout.addWidget(self.variablesView)
+
+        buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.setAlignment(QtCore.Qt.AlignRight)
+        self.addButton = QtWidgets.QPushButton("Add")
+        self.editButton = QtWidgets.QPushButton("Edit")
+        spacer = QtWidgets.QSpacerItem(25,10)
+        self.removeButton = QtWidgets.QPushButton("Remove")
+
+        buttonLayout.addWidget(self.addButton)
+        buttonLayout.addWidget(self.editButton)
+        buttonLayout.addSpacerItem(spacer)
+        buttonLayout.addWidget(self.removeButton)
+
+        workspaceLayout.addLayout(buttonLayout)
+
+        splitter.addWidget(mayaVersionsWidgets)
+        splitter.addWidget(workspaceWidget)
+
+
+        self.mayaVersions.itemClicked.connect(self.populateVariables)
+
+
+        self.populateVersions()
+
+    def populateVersions(self):
+        self.mayaVersions.clear()
+        self.mayaEnvs = Core.getMayaEnvs()
+        for verison in self.mayaEnvs.keys():
+            QtWidgets.QTreeWidgetItem(self.mayaVersions, [verison])
     
-    mayaVars = []
-    for var in mayaVar:
-        if not var.startswith("\\\\"):
-            for sep in SEPARATOR:
-                if '\n' in var:
-                    var = var.replace("\n", "")
-                sepVar = var.split(sep)
-                if "\\" in sepVar[1]:
-                    mayaVars.append(variables.Variable(sepVar[0], mayaEnvPath, sepVar[1], str))
-                elif isinstance(eval(sepVar[1]), bool):
-                    mayaVars.append(variables.Variable(sepVar[0], mayaEnvPath, sepVar[1], bool))
-                else:
-                    mayaVars.append(variables.Variable(sepVar[0], mayaEnvPath, sepVar[1], None))
-    return mayaVars
+    def populateVariables(self):
+        self.variablesView.clear()
+        selectedVersion = self.mayaVersions.selectedItems()[0].text(0)
+        currentVars = self.mayaEnvs[selectedVersion]
+        for var in currentVars:
+            QtWidgets.QTreeWidgetItem(self.variablesView, [var.name, var.value, str(var.varType())])
 
-# Edit a varaible object content.
-def editVariable(variable):
-    # variable (variables.Variable): one variable object of maya environment variable datas.
-    mayaVariables = getEnvVar(variable.path)
-    editedVar = mayaVariables
-    isNewVar = False
-    for nb, mayaVar in enumerate(mayaVariables):
-        if mayaVar.name == variable.name:
-            editedVar[nb] = variable
-            isNewVar = False
-            break
-        else:
-            isNewVar = True
-    if isNewVar:
-        editedVar.append(variable)
-    return mayaVariables
-
-# Right in maya.env file with the given collection of varialbes 
-# Warning : If muliple path in collection, only the first path would be readed
-def writeEnvs(mayaEnvs):
-    # mayaEnvs (list[variables.Variable]) collection of maya environement variables
-    global UNDO_HISTORIC
-    path = mayaEnvs[0].path
-    newMayaEnvs = str()
-    for mayaEnv in mayaEnvs:
-        if mayaEnv.path == path:
-            if newMayaEnvs == "":
-                newMayaEnvs = mayaEnv.name +"="+ str(mayaEnv.value)
-            else:
-                newMayaEnvs += "\n" + mayaEnv.name +"="+ str(mayaEnv.value)
-    with open(path, "r") as f:
-        UNDO_HISTORIC.append([path, f.read()])
-
-    with open (path, "w") as f:
-        f.write(newMayaEnvs)
-    return newMayaEnvs
-
-def undo():
-    global UNDO_HISTORIC
-    if UNDO_HISTORIC == []:
-        print("# WARNING : No Historic Found !")
-        return
-    with open(UNDO_HISTORIC[-1][0], "w") as f:
-        f.write(UNDO_HISTORIC[-1][1])
-    del UNDO_HISTORIC[-1]
-
-newVar = variables.Variable("NEW_VAR", os.path.join(MAYA_PATH, "2022", "maya.env"), True, bool)
-
-replaceVar = getMayaEnvs()["2022"][0]
-replaceVar.setValue(r"C:\Users\mickaelg\Documents\Toonkit\Toonkit_Module_OscarBlur_2022_1_5_61\Maya2022")
-newEnv = editVariable(replaceVar)
-
-# writeEnvs(newEnv)
-
-undo()
+app = QtWidgets.QApplication(sys.argv)
+window = mayaEditorUI()
+window.show()
+sys.exit(app.exec_())
