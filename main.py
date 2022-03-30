@@ -133,9 +133,6 @@ class NewVariable(QtWidgets.QDialog):
 
         self.setLayout(self.baseLayout)
 
-        self.typeSelect.currentIndexChanged.connect(self.variableChaged)
-        self.variableChaged()
-
         # Paths
         self.pathLayout = QtWidgets.QHBoxLayout()
         pathLabel = QtWidgets.QLabel("Path Value :")
@@ -146,8 +143,52 @@ class NewVariable(QtWidgets.QDialog):
         self.pathLayout.addWidget(pathButton)
         self.baseLayout.addLayout(self.pathLayout)
 
-    def variableChaged(self):
-        typeSelected = self.typeSelect.currentIndex
+        # Bool
+        self.boolLayout = QtWidgets.QHBoxLayout()
+        boolLabel = QtWidgets.QLabel("Bool Value :")
+        self.boolValue = QtWidgets.QComboBox()
+        self.boolValue.addItems(["True", "False"])
+        self.boolLayout.addWidget(boolLabel)
+        self.boolLayout.addWidget(self.boolValue)
+        self.baseLayout.addLayout(self.boolLayout)
+
+        # Str
+        self.strLayout = QtWidgets.QHBoxLayout()
+        strLabel = QtWidgets.QLabel("Str Value :")
+        self.strValue = QtWidgets.QLineEdit()
+        self.strLayout.addWidget(strLabel)
+        self.strLayout.addWidget(self.strValue)
+        self.baseLayout.addLayout(self.strLayout)
+        
+        # Burront
+        self.DialogButton = QtWidgets.QHBoxLayout(
+            
+        )
+        self.typeSelect.currentIndexChanged.connect(self.variableChanged)
+        self.variableChanged()
+
+    def variableChanged(self):
+        typeSelected = self.typeSelect.currentIndex()
+        if typeSelected == 0:
+            showLayoutContant(self.pathLayout)
+            hideLayoutContant(self.boolLayout)
+            hideLayoutContant(self.strLayout)
+        elif typeSelected == 1:
+            hideLayoutContant(self.pathLayout)
+            showLayoutContant(self.boolLayout)
+            hideLayoutContant(self.strLayout)
+        elif typeSelected == 2:
+            hideLayoutContant(self.pathLayout)
+            hideLayoutContant(self.boolLayout)
+            showLayoutContant(self.strLayout)
+
+def hideLayoutContant(layout):
+    for i in range(layout.count()):
+        layout.itemAt(i).widget().hide()
+
+def showLayoutContant(layout):
+    for i in range(layout.count()):
+        layout.itemAt(i).widget().show()
 
 app = QtWidgets.QApplication(sys.argv)
 window = mayaEditorUI()
