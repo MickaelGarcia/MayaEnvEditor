@@ -26,18 +26,21 @@ import variables
 import ME_core as Core
 from qtpy import QtWidgets, QtCore
 
+STYLE_SHEET = """QSplitter::handle:horizontal {
+background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+    stop:0 #eee, stop:1 #ccc);
+width: 4px;
+border-radius: 4px;
+}"""
+
 
 class mayaEditorUI(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super(mayaEditorUI, self).__init__(*args, **kwargs)
-        self.setStyleSheet("""QSplitter::handle:horizontal {
-                           background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                               stop:0 #eee, stop:1 #ccc);
-                           width: 4px;
-                           border-radius: 4px;
-                           }""")
-        self.mayaEnvs = None
 
+        self.mayaEnvs = None
+        # self.setStyleSheet(STYLE_SHEET)
+        
         self.setWindowTitle("Maya Environement Editor")
         centralWidget = QtWidgets.QWidget()
         centralLayout = QtWidgets.QHBoxLayout()
@@ -76,19 +79,23 @@ class mayaEditorUI(QtWidgets.QMainWindow):
 
         workspaceLayout.addLayout(buttonLayout)
 
+        saveButton = QtWidgets.QPushButton("Save")
+        workspaceLayout.addWidget(saveButton)
+
         splitter.addWidget(mayaVersionsWidgets)
         splitter.addWidget(workspaceWidget)
 
-
         self.mayaVersions.itemClicked.connect(self.populateVariables)
-
+        self.addButton.clicked.connect(self.newVariable)
 
         self.populateVersions()
+
 
     def populateVersions(self):
         self.mayaVersions.clear()
         self.mayaEnvs = Core.getMayaEnvs()
-        for verison in self.mayaEnvs.keys():
+        mayaVersions = reversed(list(self.mayaEnvs.keys()))
+        for verison in mayaVersions:
             QtWidgets.QTreeWidgetItem(self.mayaVersions, [verison])
     
     def populateVariables(self):
@@ -97,6 +104,50 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         currentVars = self.mayaEnvs[selectedVersion]
         for var in currentVars:
             QtWidgets.QTreeWidgetItem(self.variablesView, [var.name, var.value, str(var.varType())])
+    
+    def newVariable(self):
+        dialog = NewVariable(self)
+        dialog.exec_()
+
+
+class NewVariable(QtWidgets.QDialog):
+    def __init__(self, model, parent=None):
+        super(NewVariable, self).__init__(parent)
+        self.model = model
+        self.setWindowTitle("Add New Variable")
+        self.baseLayout = QtWidgets.QVBoxLayout()
+        typeLayout = QtWidgets.QHBoxLayout()
+        typeLabel = QtWidgets.QLabel("Variable Type")
+        self.typeSelect = QtWidgets.QComboBox()
+        self.typeSelect.addItems(["Path", "Bool", "Str"])
+        varNameLayout = QtWidgets.QHBoxLayout()
+        varNameLabel = QtWidgets.QLabel("Variable Name : ")
+        self.varNameText = QtWidgets.QLineEdit()
+        varNameLayout.addWidget(varNameLabel)
+        varNameLayout.addWidget(self.varNameText)
+
+        typeLayout.addWidget(typeLabel)
+        typeLayout.addWidget(self.typeSelect)
+        self.baseLayout.addLayout(typeLayout)
+        self.baseLayout.addLayout(varNameLayout)
+
+        self.setLayout(self.baseLayout)
+
+        self.typeSelect.currentIndexChanged.connect(self.variableChaged)
+        self.variableChaged()
+
+        # Paths
+        self.pathLayout = QtWidgets.QHBoxLayout()
+        pathLabel = QtWidgets.QLabel("Path Value :")
+        self.pathValue = QtWidgets.QLineEdit()
+        pathButton = QtWidgets.QPushButton("...")
+        self.pathLayout.addWidget(pathLabel)
+        self.pathLayout.addWidget(self.pathValue)
+        self.pathLayout.addWidget(pathButton)
+        self.baseLayout.addLayout(self.pathLayout)
+
+    def variableChaged(self):
+        typeSelected = self.typeSelect.currentIndex
 
 app = QtWidgets.QApplication(sys.argv)
 window = mayaEditorUI()

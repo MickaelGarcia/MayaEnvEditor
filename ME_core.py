@@ -107,7 +107,7 @@ def writeEnvs(mayaEnvs):
         f.write(newMayaEnvs)
     return newMayaEnvs
 
-def undo():
+def undoSave():
     global UNDO_HISTORIC
     if UNDO_HISTORIC == []:
         print("# WARNING : No Historic Found !")
