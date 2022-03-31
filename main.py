@@ -21,8 +21,7 @@
 """
 
 import sys
-import re
-import variables
+import os
 import ME_core as Core
 from qtpy import QtWidgets, QtCore
 
@@ -32,7 +31,7 @@ background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
 width: 4px;
 border-radius: 4px;
 }"""
-
+VAR_TYPE = ["<class 'path'>", str(bool), str(str)]
 
 class mayaEditorUI(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -68,9 +67,12 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         buttonLayout = QtWidgets.QHBoxLayout()
         buttonLayout.setAlignment(QtCore.Qt.AlignRight)
         self.addButton = QtWidgets.QPushButton("Add")
+        self.addButton.setEnabled(False)
         self.editButton = QtWidgets.QPushButton("Edit")
+        self.editButton.setEnabled(False)
         spacer = QtWidgets.QSpacerItem(25,10)
         self.removeButton = QtWidgets.QPushButton("Remove")
+        self.removeButton.setEnabled(False)
 
         buttonLayout.addWidget(self.addButton)
         buttonLayout.addWidget(self.editButton)
@@ -80,6 +82,7 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         workspaceLayout.addLayout(buttonLayout)
 
         saveButton = QtWidgets.QPushButton("Save")
+        saveButton.setEnabled(False)
         workspaceLayout.addWidget(saveButton)
 
         splitter.addWidget(mayaVersionsWidgets)
@@ -99,6 +102,9 @@ class mayaEditorUI(QtWidgets.QMainWindow):
             QtWidgets.QTreeWidgetItem(self.mayaVersions, [verison])
     
     def populateVariables(self):
+        self.addButton.setEnabled(True)
+        self.editButton.setEnabled(True)
+        self.removeButton.setEnabled(True)
         self.variablesView.clear()
         selectedVersion = self.mayaVersions.selectedItems()[0].text(0)
         currentVars = self.mayaEnvs[selectedVersion]
@@ -109,11 +115,28 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         dialog = NewVariable(self)
         dialog.exec_()
 
+        valuesDialog = dialog.toReturn
+        if not valuesDialog:
+            return
+        else:
+            QtWidgets.QTreeWidgetItem(self.variablesView, [*valuesDialog])
+
+    def editVariable(self):
+        dialog = NewVariable(self)
+        dialog.exec_()
+
+        valuesDialog = dialog.toReturn
+        if not valuesDialog:
+            return
+        else:
+            pass
+
 
 class NewVariable(QtWidgets.QDialog):
     def __init__(self, model, parent=None):
         super(NewVariable, self).__init__(parent)
         self.model = model
+        self.toReturn = None
         self.setWindowTitle("Add New Variable")
         self.baseLayout = QtWidgets.QVBoxLayout()
         typeLayout = QtWidgets.QHBoxLayout()
@@ -160,10 +183,15 @@ class NewVariable(QtWidgets.QDialog):
         self.strLayout.addWidget(self.strValue)
         self.baseLayout.addLayout(self.strLayout)
         
-        # Burront
-        self.DialogButton = QtWidgets.QHBoxLayout(
-            
-        )
+        # Buttont
+        self.dialogButtonLayout = QtWidgets.QHBoxLayout()
+        self.dialogBtn = QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        self.buttonBox = QtWidgets.QDialogButtonBox(self.dialogBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.dialogButtonLayout.addWidget(self.buttonBox)
+        self.baseLayout.addLayout(self.dialogButtonLayout)
+
         self.typeSelect.currentIndexChanged.connect(self.variableChanged)
         self.variableChanged()
 
@@ -182,6 +210,17 @@ class NewVariable(QtWidgets.QDialog):
             hideLayoutContant(self.boolLayout)
             showLayoutContant(self.strLayout)
 
+    def accept(self):
+        varName = self.varNameText.text().upper()
+        values = [os.path.join(self.pathValue.text()), self.boolValue.currentText(), self.strValue.text()]
+        value = values[self.typeSelect.currentIndex()]
+        valueType = VAR_TYPE[self.typeSelect.currentIndex()]
+        self.toReturn = (varName, value, valueType)
+        self.done(1)
+
+    def reject(self):
+        self.done(0)
+
 def hideLayoutContant(layout):
     for i in range(layout.count()):
         layout.itemAt(i).widget().hide()
@@ -190,7 +229,9 @@ def showLayoutContant(layout):
     for i in range(layout.count()):
         layout.itemAt(i).widget().show()
 
-app = QtWidgets.QApplication(sys.argv)
-window = mayaEditorUI()
-window.show()
-sys.exit(app.exec_())
+
+if __name__=='__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    window = mayaEditorUI()
+    window.show()
+    sys.exit(app.exec_())
