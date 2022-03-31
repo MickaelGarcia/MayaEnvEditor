@@ -90,6 +90,8 @@ class mayaEditorUI(QtWidgets.QMainWindow):
 
         self.mayaVersions.itemClicked.connect(self.populateVariables)
         self.addButton.clicked.connect(self.newVariable)
+        self.editButton.clicked.connect(self.editVariable)
+        self.removeButton.clicked.connect(self.removeVariable)
 
         self.populateVersions()
 
@@ -122,15 +124,33 @@ class mayaEditorUI(QtWidgets.QMainWindow):
             QtWidgets.QTreeWidgetItem(self.variablesView, [*valuesDialog])
 
     def editVariable(self):
-        dialog = NewVariable(self)
-        dialog.exec_()
+        if self.variablesView.selectedItems():
+            variableSelected = self.variablesView.selectedItems()[0]
+        
+            dialog = NewVariable(self)
+            dialog.varNameText.setText(self.variablesView.selectedItems()[0].text(0))
+            if self.variablesView.selectedItems()[0].text(2) == VAR_TYPE[0]:
+                print('is path var')
+                dialog.typeSelect.setCurrentIndex(0)
+                dialog.pathValue.setText(self.variablesView.selectedItems()[0].text(1))
+            elif self.variablesView.selectedItems()[0].text(2) == VAR_TYPE[1]:
+                dialog.typeSelect.setCurrentIndex(1)
+                dialog.boolValue.setCurrentText(self.variablesView.selectedItems()[0].text(1).replace(" ", ""))
+            dialog.exec_()
 
-        valuesDialog = dialog.toReturn
-        if not valuesDialog:
-            return
-        else:
-            pass
-
+            valuesDialog = dialog.toReturn
+            if not valuesDialog:
+                return
+            else:
+                variableSelected.setText(0, valuesDialog[0])
+                variableSelected.setText(1, valuesDialog[1])
+                variableSelected.setText(2, valuesDialog[2])
+    
+    def removeVariable(self):
+        selectedVariable = self.variablesView.selectedItems()
+        root = self.variablesView.invisibleRootItem()
+        for item in selectedVariable:
+            (item.parent() or root).removeChild(item)
 
 class NewVariable(QtWidgets.QDialog):
     def __init__(self, model, parent=None):
@@ -193,6 +213,7 @@ class NewVariable(QtWidgets.QDialog):
         self.baseLayout.addLayout(self.dialogButtonLayout)
 
         self.typeSelect.currentIndexChanged.connect(self.variableChanged)
+        pathButton.clicked.connect(self.openFile)
         self.variableChanged()
 
     def variableChanged(self):
@@ -220,6 +241,11 @@ class NewVariable(QtWidgets.QDialog):
 
     def reject(self):
         self.done(0)
+
+    def openFile(self):
+        directoryValue = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
+        if not directoryValue == "":
+            self.pathValue.setText(os.path.join(directoryValue))
 
 def hideLayoutContant(layout):
     for i in range(layout.count()):
