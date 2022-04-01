@@ -24,6 +24,7 @@ import sys
 import os
 import ME_core as Core
 from qtpy import QtWidgets, QtCore
+import variables
 
 STYLE_SHEET = """QSplitter::handle:horizontal {
 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -32,6 +33,7 @@ width: 4px;
 border-radius: 4px;
 }"""
 VAR_TYPE = ["<class 'path'>", str(bool), str(str)]
+TRUE_VAR_TYPE = ["<class 'path'>", bool, str]
 
 class mayaEditorUI(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -130,7 +132,6 @@ class mayaEditorUI(QtWidgets.QMainWindow):
             dialog = NewVariable(self)
             dialog.varNameText.setText(self.variablesView.selectedItems()[0].text(0))
             if self.variablesView.selectedItems()[0].text(2) == VAR_TYPE[0]:
-                print('is path var')
                 dialog.typeSelect.setCurrentIndex(0)
                 dialog.pathValue.setText(self.variablesView.selectedItems()[0].text(1))
             elif self.variablesView.selectedItems()[0].text(2) == VAR_TYPE[1]:
@@ -151,6 +152,18 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         root = self.variablesView.invisibleRootItem()
         for item in selectedVariable:
             (item.parent() or root).removeChild(item)
+
+    def save(self):
+        version = self.mayaVersions.selectedItems(0).text(0)
+        oldVarsObjects = self.mayaEnvs[version]
+        pathVar = oldVarsObjects[0].path
+        currentVars = self.variablesView.items()
+        newEnvs = []
+        for currentVar in currentVar:
+            for nb, strType in enumerate(VAR_TYPE):
+                if currentVar.text(2) == strType:
+                    varType = TRUE_VAR_TYPE[nb]
+            newEnvs.append(variables.Variable(currentVar.text(0), pathVar, currentVar.text(1), varType))
 
 class NewVariable(QtWidgets.QDialog):
     def __init__(self, model, parent=None):

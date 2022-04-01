@@ -43,3 +43,17 @@ class Variable():
     
     def setValue(self, value):
         self.variableValue = value
+
+    def __eq__(self, obj):
+        isSameName = self.variableName == obj.name
+        isSamePath = self.variablePath == obj.path
+        isSameType = self.variableType == obj.varType()
+        siSameValue = self.variableValue == obj.value
+
+        if not isSameName or not isSamePath or not isSameType or not siSameValue:
+            return False
+        else:
+            return True
+            
+    def __ne__(self, obj):
+        return not self == obj

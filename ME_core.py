@@ -60,7 +60,7 @@ def getEnvVar(mayaEnvPath):
         if not var.startswith("\\\\"):
             for sep in SEPARATOR:
                 if '\n' in var:
-                    var = var.replace("\n", "")
+                    var = var.replace("\n", "").replace(" ", "")
                 sepVar = var.split(sep)
                 if "\\" in sepVar[1]:
                     mayaVars.append(variables.Variable(sepVar[0], mayaEnvPath, sepVar[1], "<class 'path'>"))
@@ -115,4 +115,3 @@ def undoSave():
     with open(UNDO_HISTORIC[-1][0], "w") as f:
         f.write(UNDO_HISTORIC[-1][1])
     del UNDO_HISTORIC[-1]
-
