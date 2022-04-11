@@ -25,6 +25,7 @@ import os
 import ME_core as Core
 from qtpy import QtWidgets, QtCore
 import variables
+import subprocess
 
 STYLE_SHEET = """QSplitter::handle:horizontal {
 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -84,8 +85,9 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         workspaceLayout.addLayout(buttonLayout)
 
         saveButton = QtWidgets.QPushButton("Save")
-        saveButton.setEnabled(False)
+        runButton = QtWidgets.QPushButton("Run Maya")
         workspaceLayout.addWidget(saveButton)
+        workspaceLayout.addWidget(runButton)
 
         splitter.addWidget(mayaVersionsWidgets)
         splitter.addWidget(workspaceWidget)
@@ -94,6 +96,8 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         self.addButton.clicked.connect(self.newVariable)
         self.editButton.clicked.connect(self.editVariable)
         self.removeButton.clicked.connect(self.removeVariable)
+        saveButton.clicked.connect(self.save)
+        runButton.clicked.connect(self.runMaya)
 
         self.populateVersions()
 
@@ -120,9 +124,14 @@ class mayaEditorUI(QtWidgets.QMainWindow):
         dialog.exec_()
 
         valuesDialog = dialog.toReturn
+        allradyExiste=False
+        for index in range(self.variablesView.topLevelItemCount()):
+            if valuesDialog[0] in self.variablesView.topLevelItem(index).text(0):
+                allradyExiste =True
+                print("The variable name "+valuesDialog[0] + " allrady exist !")
         if not valuesDialog:
             return
-        else:
+        elif not allradyExiste:
             QtWidgets.QTreeWidgetItem(self.variablesView, [*valuesDialog])
 
     def editVariable(self):
@@ -154,16 +163,28 @@ class mayaEditorUI(QtWidgets.QMainWindow):
             (item.parent() or root).removeChild(item)
 
     def save(self):
-        version = self.mayaVersions.selectedItems(0).text(0)
+        version = self.mayaVersions.selectedItems()[0].text(0)
         oldVarsObjects = self.mayaEnvs[version]
         pathVar = oldVarsObjects[0].path
-        currentVars = self.variablesView.items()
+        currentVars = []
+        for x in range(self.variablesView.topLevelItemCount()):
+            currentVars.append(self.variablesView.topLevelItem(x))
         newEnvs = []
-        for currentVar in currentVar:
+        for currentVar in currentVars:
             for nb, strType in enumerate(VAR_TYPE):
                 if currentVar.text(2) == strType:
                     varType = TRUE_VAR_TYPE[nb]
             newEnvs.append(variables.Variable(currentVar.text(0), pathVar, currentVar.text(1), varType))
+        if newEnvs == oldVarsObjects:
+            print("Nothing change ! ")
+        else:
+            Core.writeEnvs(newEnvs)
+
+    def runMaya(self):
+        version = self.mayaVersions.selectedItems()[0].text(0)
+        path = os.path.join(r"C:\Program Files\Autodesk", ("Maya"+version), "bin", "maya.exe")
+        subprocess.Popen(path)
+
 
 class NewVariable(QtWidgets.QDialog):
     def __init__(self, model, parent=None):
